@@ -1,0 +1,12 @@
+context Book
+	inv EnoughOnShelf:
+		self.no_onshelf >= 0
+		
+context Book
+	inv EnoughCopies:
+		self.no_copies >= 0
+		
+
+	
+
+		

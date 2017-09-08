@@ -1,0 +1,132 @@
+model Library
+
+class Book
+  attributes
+    title : String
+    author : String
+    no_copies : Integer
+    no_onshelf : Integer
+  operations
+    borrow()
+    begin
+        self.no_onshelf := self.no_onshelf - 1
+	end
+	pre copiesOnShelf: no_copies > 0
+    post: no_onshelf = no_onshelf@pre - 1
+	return()
+	begin
+		self.no_onshelf := self.no_onshelf + 1
+	end
+	reserve()
+	begin
+		self.no_onshelf := self.no_onshelf - 1
+	end
+	pre copiesOnShelf: no_copies > 0
+	post: no_onshelf = no_onshelf@pre - 1
+	unreserve(c:Copy)
+	begin
+		self.no_onshelf := self.no_onshelf + 1
+	end
+		
+end
+
+class Copy
+  attributes
+    status : String
+  operations
+    borrow( m : Member)
+    begin
+        self.status := 'onLoan';
+	end
+	return( m : Member)
+	begin
+		self.status := 'onShelf';
+		self.book.return()
+	end
+	reserve(m : Member)
+	begin	
+		self.status := 'onReserve';
+	end
+	unreserve(m : Member)
+	begin	
+		self.status := 'onShelf';
+		self.book.unreserve();
+	end
+    
+end    
+    
+class Member 
+  attributes 
+    name : String
+    address : String
+    no_onloan : Integer
+	no_onreserve : Integer
+    status : String
+    fine : Integer
+  operations
+    borrow(c : Copy)
+    begin
+        insert (self, c) into HasBorrowed;
+        self.no_onloan := self.no_onloan + 1;
+        c.borrow(self) 
+	end
+	return(c : Copy)
+	begin
+		delete (self, c) from HasBorrowed;
+		self.no_onloan := self.no_onloan - 1;
+		c.return(self)
+	end
+	reserve(c : Copy)
+	begin	
+		insert (self, c) into HasReserved;
+		self.no_onreserve := self.no_onreserve + 1;
+		c.reserve(self)
+	end
+	unreserve(c:Copy)
+	begin
+		delete (self,c) from HasReserved;
+		self.no_onreserve := self.no_onreserve - 1;
+		c.unreserve(self)
+	end
+		
+end    
+
+association HasBorrowed between
+    Member[0..1] role borrower
+    Copy[*] role borrowed
+end
+
+association HasReserved between
+    Member[0..1] role reserver
+    Copy[*] role reserved
+end
+
+association CopyOf between
+    Copy[1..*] role copies
+    Book[1] role book
+end
+  
+constraints
+
+context Member::borrow(c:Copy) 
+    pre limit: self.no_onloan < 1
+	pre cond1: c.status = 'onShelf'
+    pre cond2: self.borrowed->excludes(c)
+	pre cond3: self.no_onreserve < 1
+    post cond4: self.borrowed->includes(c)
+	
+context Member::return(c:Copy)
+	pre limit: self.no_onloan > 0
+	pre cond1: self.borrowed->includes(c)
+	post cond2: self.borrowed->excludes(c)
+	
+context Member::reserve(c:Copy)
+	pre limit: self.no_onreserve < 1
+	pre cond1: self.reserved->excludes(c)
+	pre cond2: self.no_onloan < 1
+	post cond3: self.reserved->includes(c)
+	
+context Member::unreserve(c:Copy)
+	pre limit: self.no_onreserve > 0
+	pre cond1: self.reserved->includes(c)
+	post con2: self.reserved->excludes(c)
